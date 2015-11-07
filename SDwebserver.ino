@@ -24,7 +24,7 @@ void loop() {
   EthernetClient client = server.available();
   if (client) {
     Serial.println("new client");
-    res="";httpget="";path="";
+    String res="",httpget="",path="";
     int resend = 1;
     boolean currentLineIsBlank = true;
     while (client.connected()) {
