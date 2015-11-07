@@ -6,8 +6,7 @@ byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};//mac地址
 IPAddress ip(192, 168, 31, 177);//ip地址
 EthernetServer server(80);//访问端口
 String fakename="Nginx/1.8.0 (Ubuntu 12.04 LTS)";//装逼参数(伪装服务器）
-String res,httpget,path;
-int resend;
+
 void setup() {
   Serial.begin(9600);
   while (!Serial) {
