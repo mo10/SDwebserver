@@ -3,7 +3,7 @@
 #include <SD.h>
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};//mac地址
-IPAddress ip(192, 168, 31, 177);//ip地址
+IPAddress ip(192, 168, 1, 177);//ip地址
 EthernetServer server(80);//访问端口
 String fakename = "Nginx/1.8.0 (ATmega328p/Ubuntu 12.04 LTS)"; //装逼参数(伪装服务器）
 EthernetClient client;
@@ -33,7 +33,7 @@ void loop() {
   client = server.available();
   if (client) {
     Serial.println("new client");
-    String res = "", httpget = "", path = "";
+    String res = "",path = "";/*httpget = "", */
     int resend = 1;
     boolean currentLineIsBlank = true;
     while (client.connected()) {
@@ -52,22 +52,24 @@ void loop() {
           if ((res.indexOf("GET ") != -1) && (res.indexOf(" HTTP") != -1)) {
             //判断是否存在get参数
             if (res.indexOf('?') != -1) {
-              httpget = res.substring(res.indexOf('?') + 1, res.indexOf(" HTTP"));
+              //httpget = res.substring(res.indexOf('?') + 1, res.indexOf(" HTTP"));
               path = res.substring(res.indexOf("GET ") + 4, res.indexOf('?'));
             } else {
               path = res.substring(res.indexOf("GET ") + 4, res.indexOf(" HTTP"));
             }
 
             Serial.println(res);
-            Serial.println("GET:" + httpget);
+            //Serial.println("GET:" + httpget);
             Serial.println("path:" + path);
             client.println("HTTP/1.1 200 OK");
             client.println("Server: " + fakename); //装逼参数
             client.println("Content-Type: text/html");
             client.println("Connection: close");
             client.println();
-            client.println("<!DOCTYPE HTML><html><head></head><body><h1>200 Success</h1>GET:" + httpget + "<br />PATH:" + path + "<hr />");
-            webprintDirectory(SD.open(path));
+            client.println("<!DOCTYPE HTML><html><head></head><body><h1>200 Success</h1><br />PATH:" + path + "<hr />");
+            
+            webprintDirectory(SD.open(path), 0);
+           // q.close();
             client.println("<p>" + fakename + "</p></body></html>");
             break;
           } else {
@@ -100,28 +102,35 @@ void loop() {
   }
 }
 
+void webprintDirectory(File dir, int numTabs) {
+  //File entry;
+  if (!dir.isDirectory()) {
+    // files have sizes, directories do not
+    client.print("<br/>is file:");
+    client.print(dir.name());
+    dir.close();
+    return;
+  }
 
-void webprintDirectory(File dir) {
+  dir.rewindDirectory();
   while (true) {
     File entry =  dir.openNextFile();
-
-      Serial.print(entry);
+    Serial.print(entry);
     if (!entry) {
       // no more files
-      Serial.print(entry);
-      dir.rewindDirectory();
+
       break;
     }
+    for (uint8_t i = 0; i < numTabs; i++) {
+      Serial.print('\t');
+    }
+    client.print("<br/>is dir/");
+    client.print(entry.name());
+    if (!entry.isDirectory()) {
+      // files have sizes, directories do not
+      Serial.print("\t\t");
+      Serial.println(entry.size(), DEC);
 
-    Serial.print(entry.name());
-    if (entry.isDirectory()) {
-      client.print(dir.name());
-      client.print(entry.name());
-      client.print("<br />");
-    } else {
-      client.print(dir.name());
-      client.print(entry.name());
-      client.print("<br />");
     }
     entry.close();
   }
