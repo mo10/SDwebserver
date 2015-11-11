@@ -6,6 +6,7 @@ byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};//mac地址
 IPAddress ip(192, 168, 1, 177);//ip地址
 EthernetServer server(80);//访问端口
 String fakename = "Nginx/1.8.0 (ATmega328p/Ubuntu 12.04 LTS)"; //装逼参数(伪装服务器）
+String res = "", path = "";
 EthernetClient client;
 void setup() {
   Serial.begin(9600);
@@ -25,7 +26,6 @@ void setup() {
   Serial.print("ip:");
   Serial.println(Ethernet.localIP());
 
-
 }
 
 
@@ -33,7 +33,7 @@ void loop() {
   client = server.available();
   if (client) {
     Serial.println("new client");
-    String res = "",path = "";/*httpget = "", */
+     res = ""; path = ""; /*httpget = "", */
     int resend = 1;
     boolean currentLineIsBlank = true;
     while (client.connected()) {
@@ -61,25 +61,26 @@ void loop() {
             Serial.println(res);
             //Serial.println("GET:" + httpget);
             Serial.println("path:" + path);
-            client.println("HTTP/1.1 200 OK");
-            client.println("Server: " + fakename); //装逼参数
-            client.println("Content-Type: text/html");
-            client.println("Connection: close");
-            client.println();
-            client.println("<!DOCTYPE HTML><html><head></head><body><h1>200 Success</h1><br />PATH:" + path + "<hr />");
-            
-            webprintDirectory(SD.open(path), 0);
-           // q.close();
-            client.println("<p>" + fakename + "</p></body></html>");
+
+            //client.println("<!DOCTYPE HTML><html><body><h1>200 Success</h1><br />PATH:" + path + "<hr />");
+            delay(200);
+            File s = SD.open(path);
+            if (s) {
+              webprintDirectory(s);
+              s.rewindDirectory();
+              //s.close();
+              //s.close();
+            } else {
+              client.println(s);
+              s.rewindDirectory();
+              s.close();
+
+            }
+            // q.close();
+            delay(100);
+            //client.println("<p>" + fakename + "</p></body></html>");
             break;
           } else {
-            //GET头不完整 返回错误信息
-            client.println("HTTP/1.1 403 Forbidden");
-            client.println("Server: " + fakename); //装逼参数(伪装服务器）
-            client.println("Content-Type: text/html");
-            client.println("Connection: close");
-            client.println();
-            client.println("<!DOCTYPE HTML><html><head></head><body><h1>403 Forbidden</h1><hr /><p>" + fakename + "</p></body></html>");
             break;
           }
         }
@@ -102,36 +103,59 @@ void loop() {
   }
 }
 
-void webprintDirectory(File dir, int numTabs) {
+void webprintDirectory(File dir) {
   //File entry;
+  //client.print("enter webp");
   if (!dir.isDirectory()) {
     // files have sizes, directories do not
-    client.print("<br/>is file:");
-    client.print(dir.name());
+    http_header("200 OK","image/jpeg");
+    //client.print(dir.name());
+    //client.print("read file");
+    while (dir.available()) {
+      //client.print("reading");
+      if(dir.peek()!=-1){
+      client.print(dir.peek());
+      //client.print("read file end");
+      }
+    }
+    dir.rewindDirectory();
+
     dir.close();
     return;
   }
-
+  client.print("<!DOCTYPE HTML><html><body><h1>200 Success</h1><br />PATH:" + path + "<hr />");
+  client.print("exit diris");
   dir.rewindDirectory();
   while (true) {
     File entry =  dir.openNextFile();
+    Serial.println("opennextfiles");
     Serial.print(entry);
     if (!entry) {
       // no more files
-
+      client.print("<br/>no more files");
+      //entry.close();
+      dir.rewindDirectory();
       break;
-    }
-    for (uint8_t i = 0; i < numTabs; i++) {
-      Serial.print('\t');
     }
     client.print("<br/>is dir/");
     client.print(entry.name());
     if (!entry.isDirectory()) {
       // files have sizes, directories do not
-      Serial.print("\t\t");
-      Serial.println(entry.size(), DEC);
+      client.print("\t\t");
+      client.println(entry.size(), DEC);
 
     }
+
     entry.close();
   }
+  client.println("<p>" + fakename + "</p></body></html>");
+  dir.close();
+  delay(10);
+}
+
+void http_header(String statuscode, String filetype) {
+  client.println("HTTP/1.1 " + statuscode);
+  client.println("Content-Type: " + filetype);
+  client.println("Connection: close");
+  client.println();
 }
