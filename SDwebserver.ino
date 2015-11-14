@@ -3,7 +3,7 @@
 #include <SD.h>
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};//mac地址
-IPAddress ip(192, 168, 1, 177);//ip地址
+IPAddress ip(192, 168, 31, 177);//ip地址
 EthernetServer server(80);//访问端口
 String fakename = "Nginx/1.8.0 (ATmega328p/Ubuntu 12.04 LTS)"; //装逼参数(伪装服务器）
 String res = "", path = "";
@@ -33,7 +33,9 @@ void loop() {
   client = server.available();
   if (client) {
     Serial.println("new client");
-     res = ""; path = ""; /*httpget = "", */
+    
+    delay(200);
+    res = ""; path = ""; /*httpget = "", */
     int resend = 1;
     boolean currentLineIsBlank = true;
     while (client.connected()) {
@@ -57,30 +59,19 @@ void loop() {
             } else {
               path = res.substring(res.indexOf("GET ") + 4, res.indexOf(" HTTP"));
             }
-
             Serial.println(res);
             //Serial.println("GET:" + httpget);
             Serial.println("path:" + path);
-
-            //client.println("<!DOCTYPE HTML><html><body><h1>200 Success</h1><br />PATH:" + path + "<hr />");
-            delay(200);
+            //delay(100);
             File s = SD.open(path);
             if (s) {
               webprintDirectory(s);
-              s.rewindDirectory();
-              //s.close();
-              //s.close();
             } else {
               client.println(s);
               s.rewindDirectory();
               s.close();
-
             }
-            // q.close();
-            delay(100);
             //client.println("<p>" + fakename + "</p></body></html>");
-            break;
-          } else {
             break;
           }
         }
@@ -104,58 +95,71 @@ void loop() {
 }
 
 void webprintDirectory(File dir) {
-  //File entry;
-  //client.print("enter webp");
+  //判断是否为文件
   if (!dir.isDirectory()) {
-    // files have sizes, directories do not
-    http_header("200 OK","image/jpeg");
-    //client.print(dir.name());
-    //client.print("read file");
-    while (dir.available()) {
-      //client.print("reading");
-      if(dir.peek()!=-1){
-      client.print(dir.peek());
-      //client.print("read file end");
-      }
-    }
-    dir.rewindDirectory();
 
+    if (path.indexOf('.') != -1) {
+      //获取后缀名
+      http_header("200 OK", path.substring(path.indexOf('.') + 1));
+    } else {
+      http_header("200 OK", "txt");//文件没有后缀名 默认显示文本格式
+    }
+    //读文件
+    while (dir.available()) {
+      char sc = dir.read();
+      client.print(sc);
+    }
     dir.close();
-    return;
+    dir.rewindDirectory();
+    return;//退出
   }
+  //判断不是文件
+  http_header("200 OK", "htm");
   client.print("<!DOCTYPE HTML><html><body><h1>200 Success</h1><br />PATH:" + path + "<hr />");
-  client.print("exit diris");
-  dir.rewindDirectory();
+  dir.rewindDirectory();//索引回到第一个位置
   while (true) {
     File entry =  dir.openNextFile();
-    Serial.println("opennextfiles");
-    Serial.print(entry);
     if (!entry) {
-      // no more files
-      client.print("<br/>no more files");
-      //entry.close();
+      //没有下一个索引了
+      client.print("<br />No more files");
       dir.rewindDirectory();
       break;
     }
-    client.print("<br/>is dir/");
+    if (path == "/") {
+      client.print("<br /><a href=\"" + path);
+    } else {
+      client.print("<br /><a href=\"" + path + "/");
+    }
     client.print(entry.name());
+    client.print("\"target=\"_self\">");
+    client.print(entry.name());
+    client.print("</a>");
     if (!entry.isDirectory()) {
       // files have sizes, directories do not
-      client.print("\t\t");
+      client.print("&nbsp;&nbsp;");
       client.println(entry.size(), DEC);
-
     }
 
     entry.close();
   }
   client.println("<p>" + fakename + "</p></body></html>");
   dir.close();
-  delay(10);
+  delay(200);
 }
 
 void http_header(String statuscode, String filetype) {
+  filetype.toLowerCase();//把后缀名变小写
   client.println("HTTP/1.1 " + statuscode);
-  client.println("Content-Type: " + filetype);
+  client.print("Content-Type: ");
+  //判断文件mime类型
+  if (filetype == "htm" || filetype == "html") {
+    client.println("text/html");
+  }
+  if (filetype == "png" || filetype == "jpg" || filetype == "bmp" || filetype == "gif") {
+    client.println("image/" + filetype);
+  } else {
+    client.println("text/plain");
+  }
   client.println("Connection: close");
   client.println();
 }
